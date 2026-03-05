@@ -1,0 +1,30 @@
+{
+  "app": {
+    "type": "lua",
+    "name": "stt_tts",
+    "version": "0.2.0",
+    "title": "Speech-to-Text / Text-to-Speech",
+    "description": "Composable STT and TTS journey functions. Reference implementation uses OpenAI Whisper and TTS. Swap vendor by editing transcribe.lua and speak.lua."
+  },
+  "journeys": [
+    {
+      "description": "Voice FAQ demo: transcribe a voice note, answer with AI, speak the response back",
+      "file": "voice-faq.md",
+      "name": "Voice FAQ"
+    }
+  ],
+  "assistants": {
+    "stt_tts_assistant": {
+      "name": "STT/TTS FAQ Assistant",
+      "type": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "emoji": "",
+      "context_who_am_i": "",
+      "context_language": "",
+      "context_tone": "",
+      "context_do": "",
+      "context_objective": "",
+      "context_other": ""
+    }
+  }
+}
