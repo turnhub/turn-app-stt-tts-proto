@@ -1,18 +1,36 @@
 local turn = require("turn")
+local base64 = require("stt_tts.base64")
 local lester = require("lester")
 local describe, it, expect = lester.describe, lester.it, lester.expect
+
+-- Capture original save before any overrides
+local sdk_media_save = turn.media.save
 
 describe("stt_tts app", function()
     local App
     local app_config
     local number
+    local mock_media_ids  -- local Lua table avoids Luerl _stores key quirk
 
     lester.before(function()
+        mock_media_ids = {}
+        turn.media.save = function(request)
+            local ok, info = sdk_media_save(request)
+            if ok and info then mock_media_ids[info.external_id] = true end
+            return ok, info
+        end
+        turn.media.signed_url = function(external_id)
+            if not mock_media_ids[external_id] then
+                return "Media not found: " .. tostring(external_id), false
+            end
+            return "https://mock-storage.turn.io/attachments/1", true
+        end
         turn.test.reset()
         package.loaded["stt_tts"] = nil
         package.loaded["stt_tts.transcribe"] = nil
         package.loaded["stt_tts.speak"] = nil
         package.loaded["stt_tts.multipart"] = nil
+        package.loaded["stt_tts.base64"] = nil
 
         App = require("stt_tts")
 
@@ -27,14 +45,14 @@ describe("stt_tts app", function()
         }
 
         turn.test.set_config({
-            stt_api_url = "https://api.openai.com/v1/audio/transcriptions",
+            stt_api_url = "https://v3-api-develop.proto.cx/api/platform/v1/voice/01JTEST/asr",
             stt_api_key = "test-key",
-            stt_model = "whisper-1",
-            tts_api_url = "https://api.openai.com/v1/audio/speech",
+            tts_api_url = "https://v3-api-develop.proto.cx/api/platform/v1/voice/01JTEST/tts",
             tts_api_key = "test-key",
-            tts_model = "tts-1",
-            tts_voice = "alloy",
+            tts_gender = "female",
             default_language = "en",
+            audio_convert_url = "https://your-worker.workers.dev",
+            audio_convert_secret = "test-secret",
         })
     end)
 
@@ -50,31 +68,27 @@ describe("stt_tts app", function()
             App.on_event(app_config, number, "install", {})
 
             local config = turn.app.get_config()
-            expect.equal(config.stt_api_url, "https://api.openai.com/v1/audio/transcriptions")
-            expect.equal(config.stt_model, "whisper-1")
-            expect.equal(config.tts_api_url, "https://api.openai.com/v1/audio/speech")
-            expect.equal(config.tts_model, "tts-1")
-            expect.equal(config.tts_voice, "alloy")
+            expect.equal(config.tts_gender, "female")
             expect.equal(config.default_language, "en")
+            expect.equal(config.audio_convert_url, "https://ogg-to-mp3.arjunkhoosal.workers.dev")
         end)
 
         it("preserves existing config", function()
             turn.test.set_config({
                 stt_api_url = "https://custom-stt.example.com",
                 stt_api_key = "my-real-key",
-                stt_model = "whisper-1",
                 tts_api_url = "https://custom-tts.example.com",
                 tts_api_key = "my-real-key",
-                tts_model = "tts-1",
-                tts_voice = "shimmer",
+                tts_gender = "male",
                 default_language = "rw",
+                audio_convert_url = "https://my-converter.example.com",
             })
 
             App.on_event(app_config, number, "install", {})
 
             local config = turn.app.get_config()
             expect.equal(config.stt_api_url, "https://custom-stt.example.com")
-            expect.equal(config.tts_voice, "shimmer")
+            expect.equal(config.tts_gender, "male")
             expect.equal(config.default_language, "rw")
         end)
 
@@ -103,10 +117,16 @@ describe("stt_tts app", function()
                 body = "fake-audio",
             })
 
-            turn.test.mock_http("api.openai.com/v1/audio/transcriptions", {
+            turn.test.mock_http("your%-worker.workers.dev", {
                 method = "POST",
                 status = 200,
-                body = turn.json.encode({ text = "Hello" }),
+                body = "fake-mp3-binary",
+            })
+
+            turn.test.mock_http("v3%-api%-develop%.proto%.cx", {
+                method = "POST",
+                status = 200,
+                body = turn.json.encode({ transcription = { transcription = "Hello" }, lang = "en" }),
             })
 
             local action, result = App.on_event(app_config, number, "journey_event", {
@@ -121,10 +141,10 @@ describe("stt_tts app", function()
 
     describe("journey_event - speak", function()
         it("routes to speak function", function()
-            turn.test.mock_http("api.openai.com/v1/audio/speech", {
+            turn.test.mock_http("v3%-api%-develop%.proto%.cx", {
                 method = "POST",
                 status = 200,
-                body = "fake-opus-audio",
+                body = turn.json.encode({ content = base64.encode("fake-mp3-audio") }),
             })
 
             local action, result = App.on_event(app_config, number, "journey_event", {
@@ -134,7 +154,7 @@ describe("stt_tts app", function()
 
             expect.equal(action, "continue")
             expect.truthy(result.media_id)
-            expect.equal(result.content_type, "audio/opus")
+            expect.equal(result.content_type, "audio/mpeg")
         end)
     end)
 

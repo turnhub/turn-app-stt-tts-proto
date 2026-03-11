@@ -1,13 +1,14 @@
 local turn = require("turn")
+local base64 = require("stt_tts.base64")
 
 --- Convert text to speech using a configured TTS API.
--- @param args table Journey function arguments: {text, [voice]}
--- @param config table App configuration with tts_api_url, tts_api_key, tts_model, tts_voice
+-- @param args table Journey function arguments: {text, [gender]}
+-- @param config table App configuration with tts_api_url, tts_api_key, tts_gender, default_language
 -- @return string Action signal ("continue")
 -- @return table Result with media_id and content_type, or error details
 local function speak(args, config)
     local text = args[1]
-    local voice = args[2] or config.tts_voice or "alloy"
+    local gender = args[2] or config.tts_gender or "female"
 
     if not text then
         return "continue", {
@@ -25,24 +26,31 @@ local function speak(args, config)
         }
     end
 
-    -- 1. POST text to TTS API
-    local audio_data, status = turn.http.request({
+    -- 1. Build request body
+    local request_body = {
+        text = text,
+        lang = config.default_language or "en",
+        response_format = "mp3",
+        gender = gender,
+    }
+
+    if config.tts_speed then
+        request_body.speed = config.tts_speed
+    end
+
+    -- 2. POST text to TTS API
+    local response, status = turn.http.request({
         url = config.tts_api_url,
         method = "POST",
         headers = {
             ["Authorization"] = "Bearer " .. config.tts_api_key,
             ["Content-Type"] = "application/json",
         },
-        body = turn.json.encode({
-            model = config.tts_model or "tts-1",
-            input = text,
-            voice = voice,
-            response_format = "opus",
-        }),
+        body = turn.json.encode(request_body),
     })
 
     if status ~= 200 then
-        turn.logger.error("TTS API error: HTTP " .. tostring(status) .. " - " .. tostring(audio_data))
+        turn.logger.error("TTS API error: HTTP " .. tostring(status) .. " - " .. tostring(response))
         return "continue", {
             success = false,
             error = "tts_api_error",
@@ -50,11 +58,15 @@ local function speak(args, config)
         }
     end
 
-    -- 2. Save audio as platform media
+    -- 3. Decode base64 audio from JSON response
+    local response_json = turn.json.decode(response)
+    local audio_data = base64.decode(response_json.content)
+
+    -- 4. Save audio as platform media
     local save_success, media_info = turn.media.save({
         data = audio_data,
-        filename = "speech.opus",
-        content_type = "audio/opus",
+        filename = "speech.mp3",
+        content_type = "audio/mpeg",
     })
 
     if not save_success then
@@ -67,7 +79,7 @@ local function speak(args, config)
 
     return "continue", {
         media_id = media_info.external_id,
-        content_type = "audio/opus",
+        content_type = "audio/mpeg",
     }
 end
 

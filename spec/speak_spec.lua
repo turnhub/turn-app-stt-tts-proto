@@ -1,4 +1,5 @@
 local turn = require("turn")
+local base64 = require("stt_tts.base64")
 local lester = require("lester")
 local describe, it, expect = lester.describe, lester.it, lester.expect
 
@@ -6,75 +7,77 @@ describe("speak", function()
     local speak
 
     local config = {
-        tts_api_url = "https://api.openai.com/v1/audio/speech",
+        tts_api_url = "https://v3-api-develop.proto.cx/api/platform/v1/voice/01JTEST/tts",
         tts_api_key = "test-key",
-        tts_model = "tts-1",
-        tts_voice = "alloy",
+        tts_gender = "female",
+        default_language = "en",
     }
 
     lester.before(function()
         turn.test.reset()
         package.loaded["stt_tts.speak"] = nil
+        package.loaded["stt_tts.base64"] = nil
         speak = require("stt_tts.speak")
     end)
 
     it("converts text to audio and returns media_id", function()
-        turn.test.mock_http("api.openai.com/v1/audio/speech", {
+        turn.test.mock_http("v3%-api%-develop%.proto%.cx", {
             method = "POST",
             status = 200,
-            body = "fake-opus-audio-binary",
+            body = turn.json.encode({ content = base64.encode("fake-audio-binary") }),
         })
 
         local action, result = speak({ "Hello world" }, config)
 
         expect.equal(action, "continue")
         expect.truthy(result.media_id)
-        expect.equal(result.content_type, "audio/opus")
+        expect.equal(result.content_type, "audio/mpeg")
     end)
 
-    it("uses voice from argument over config default", function()
-        turn.test.mock_http("api.openai.com/v1/audio/speech", {
+    it("uses gender from argument over config default", function()
+        turn.test.mock_http("v3%-api%-develop%.proto%.cx", {
             method = "POST",
             status = 200,
-            body = "fake-audio",
+            body = turn.json.encode({ content = base64.encode("fake-audio") }),
         })
 
-        speak({ "Hello", "nova" }, config)
+        speak({ "Hello", "male" }, config)
 
-        local requests = turn.test.get_http_requests("api.openai.com")
+        local requests = turn.test.get_http_requests("v3%-api%-develop%.proto%.cx")
         expect.equal(#requests, 1)
         local body = turn.json.decode(requests[1].body)
-        expect.equal(body.voice, "nova")
+        expect.equal(body.gender, "male")
     end)
 
-    it("uses config default voice when not specified", function()
-        turn.test.mock_http("api.openai.com/v1/audio/speech", {
+    it("uses config default gender when not specified", function()
+        turn.test.mock_http("v3%-api%-develop%.proto%.cx", {
             method = "POST",
             status = 200,
-            body = "fake-audio",
+            body = turn.json.encode({ content = base64.encode("fake-audio") }),
         })
 
         speak({ "Hello" }, config)
 
-        local requests = turn.test.get_http_requests("api.openai.com")
+        local requests = turn.test.get_http_requests("v3%-api%-develop%.proto%.cx")
         local body = turn.json.decode(requests[1].body)
-        expect.equal(body.voice, "alloy")
+        expect.equal(body.gender, "female")
     end)
 
     it("sends correct request body to TTS API", function()
-        turn.test.mock_http("api.openai.com/v1/audio/speech", {
+        turn.test.mock_http("v3%-api%-develop%.proto%.cx", {
             method = "POST",
             status = 200,
-            body = "fake-audio",
+            body = turn.json.encode({ content = base64.encode("fake-audio") }),
         })
 
         speak({ "Say this" }, config)
 
-        local requests = turn.test.get_http_requests("api.openai.com")
+        local requests = turn.test.get_http_requests("v3%-api%-develop%.proto%.cx")
         local body = turn.json.decode(requests[1].body)
-        expect.equal(body.model, "tts-1")
-        expect.equal(body.input, "Say this")
-        expect.equal(body.response_format, "opus")
+        expect.equal(body.text, "Say this")
+        expect.equal(body.lang, "en")
+        expect.equal(body.gender, "female")
+        expect.equal(body.response_format, "mp3")
     end)
 
     it("returns error when text is missing", function()
@@ -94,10 +97,10 @@ describe("speak", function()
     end)
 
     it("returns error when media save fails", function()
-        turn.test.mock_http("api.openai.com/v1/audio/speech", {
+        turn.test.mock_http("v3%-api%-develop%.proto%.cx", {
             method = "POST",
             status = 200,
-            body = "fake-audio",
+            body = turn.json.encode({ content = base64.encode("fake-audio") }),
         })
 
         local original_save = turn.media.save
@@ -113,7 +116,7 @@ describe("speak", function()
     end)
 
     it("returns error when TTS API fails", function()
-        turn.test.mock_http("api.openai.com/v1/audio/speech", {
+        turn.test.mock_http("v3%-api%-develop%.proto%.cx", {
             method = "POST",
             status = 500,
             body = "Internal Server Error",

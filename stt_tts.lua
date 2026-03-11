@@ -7,14 +7,14 @@ function App.on_event(app, number, event, data)
         local config = turn.app.get_config()
         if not config or not config.stt_api_url then
             turn.app.set_config({
-                stt_api_url = "https://api.openai.com/v1/audio/transcriptions",
+                stt_api_url = "",
                 stt_api_key = "",
-                stt_model = "whisper-1",
-                tts_api_url = "https://api.openai.com/v1/audio/speech",
+                tts_api_url = "",
                 tts_api_key = "",
-                tts_model = "tts-1",
-                tts_voice = "alloy",
+                tts_gender = "female",
                 default_language = "en",
+                audio_convert_url = "https://ogg-to-mp3.arjunkhoosal.workers.dev",
+                audio_convert_secret = "",
             })
             turn.logger.info("STT/TTS: Seeded default config — set stt_api_key and tts_api_key to activate")
         end

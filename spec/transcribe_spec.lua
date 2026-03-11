@@ -2,13 +2,18 @@ local turn = require("turn")
 local lester = require("lester")
 local describe, it, expect = lester.describe, lester.it, lester.expect
 
+-- Capture original save before any overrides
+local sdk_media_save = turn.media.save
+
 describe("transcribe", function()
     local transcribe
+    local mock_media_ids  -- local Lua table avoids Luerl _stores key quirk
 
     local config = {
-        stt_api_url = "https://api.openai.com/v1/audio/transcriptions",
+        stt_api_url = "https://v3-api-develop.proto.cx/api/platform/v1/voice/01JTEST/asr",
         stt_api_key = "test-key",
-        stt_model = "whisper-1",
+        audio_convert_url = "https://your-worker.workers.dev",
+        audio_convert_secret = "test-secret",
         default_language = "en",
     }
 
@@ -23,9 +28,22 @@ describe("transcribe", function()
     end
 
     lester.before(function()
+        mock_media_ids = {}
+        turn.media.save = function(request)
+            local ok, info = sdk_media_save(request)
+            if ok and info then mock_media_ids[info.external_id] = true end
+            return ok, info
+        end
+        turn.media.signed_url = function(external_id)
+            if not mock_media_ids[external_id] then
+                return "Media not found: " .. tostring(external_id), false
+            end
+            return "https://mock-storage.turn.io/attachments/1", true
+        end
         turn.test.reset()
         package.loaded["stt_tts.transcribe"] = nil
         package.loaded["stt_tts.multipart"] = nil
+        package.loaded["stt_tts.base64"] = nil
         transcribe = require("stt_tts.transcribe")
     end)
 
@@ -38,10 +56,16 @@ describe("transcribe", function()
             body = "fake-audio-binary",
         })
 
-        turn.test.mock_http("api.openai.com/v1/audio/transcriptions", {
+        turn.test.mock_http("your%-worker.workers.dev", {
             method = "POST",
             status = 200,
-            body = turn.json.encode({ text = "Hello world" }),
+            body = "fake-mp3-binary",
+        })
+
+        turn.test.mock_http("v3%-api%-develop%.proto%.cx", {
+            method = "POST",
+            status = 200,
+            body = turn.json.encode({ transcription = { transcription = "Hello world" }, lang = "en" }),
         })
 
         local action, result = transcribe({ media_id }, config)
@@ -60,10 +84,16 @@ describe("transcribe", function()
             body = "fake-audio",
         })
 
-        turn.test.mock_http("api.openai.com/v1/audio/transcriptions", {
+        turn.test.mock_http("your%-worker.workers.dev", {
             method = "POST",
             status = 200,
-            body = turn.json.encode({ text = "Muraho" }),
+            body = "fake-mp3-binary",
+        })
+
+        turn.test.mock_http("v3%-api%-develop%.proto%.cx", {
+            method = "POST",
+            status = 200,
+            body = turn.json.encode({ transcription = { transcription = "Muraho" }, lang = "rw" }),
         })
 
         local action, result = transcribe({ media_id, "rw" }, config)
@@ -113,6 +143,29 @@ describe("transcribe", function()
         expect.equal(result.error, "download_failed")
     end)
 
+    it("returns error when audio conversion fails", function()
+        local media_id = create_mock_media()
+
+        turn.test.mock_http("mock%-storage.turn.io/attachments/", {
+            method = "GET",
+            status = 200,
+            body = "fake-audio",
+        })
+
+        turn.test.mock_http("your%-worker.workers.dev", {
+            method = "POST",
+            status = 500,
+            body = "Internal Server Error",
+        })
+
+        local action, result = transcribe({ media_id }, config)
+
+        expect.equal(action, "continue")
+        expect.equal(result.success, false)
+        expect.equal(result.error, "convert_failed")
+        expect.truthy(result.message:find("500"))
+    end)
+
     it("returns error when STT API fails", function()
         local media_id = create_mock_media()
 
@@ -122,7 +175,13 @@ describe("transcribe", function()
             body = "fake-audio",
         })
 
-        turn.test.mock_http("api.openai.com/v1/audio/transcriptions", {
+        turn.test.mock_http("your%-worker.workers.dev", {
+            method = "POST",
+            status = 200,
+            body = "fake-mp3-binary",
+        })
+
+        turn.test.mock_http("v3%-api%-develop%.proto%.cx", {
             method = "POST",
             status = 429,
             body = "Rate limited",
@@ -145,18 +204,52 @@ describe("transcribe", function()
             body = "fake-audio",
         })
 
-        turn.test.mock_http("api.openai.com/v1/audio/transcriptions", {
+        turn.test.mock_http("your%-worker.workers.dev", {
             method = "POST",
             status = 200,
-            body = turn.json.encode({ text = "test" }),
+            body = "fake-mp3-binary",
+        })
+
+        turn.test.mock_http("v3%-api%-develop%.proto%.cx", {
+            method = "POST",
+            status = 200,
+            body = turn.json.encode({ transcription = { transcription = "test" }, lang = "en" }),
         })
 
         transcribe({ media_id }, config)
 
-        local requests = turn.test.get_http_requests("api.openai.com")
+        local requests = turn.test.get_http_requests("v3%-api%-develop%.proto%.cx")
         expect.equal(#requests, 1)
         expect.equal(requests[1].headers["Authorization"], "Bearer test-key")
         expect.truthy(requests[1].headers["Content-Type"]:find("multipart/form%-data"))
+    end)
+
+    it("includes secret in conversion worker URL", function()
+        local media_id = create_mock_media()
+
+        turn.test.mock_http("mock%-storage.turn.io/attachments/", {
+            method = "GET",
+            status = 200,
+            body = "fake-audio",
+        })
+
+        turn.test.mock_http("your%-worker.workers.dev", {
+            method = "POST",
+            status = 200,
+            body = "fake-mp3-binary",
+        })
+
+        turn.test.mock_http("v3%-api%-develop%.proto%.cx", {
+            method = "POST",
+            status = 200,
+            body = turn.json.encode({ transcription = { transcription = "test" }, lang = "en" }),
+        })
+
+        transcribe({ media_id }, config)
+
+        local requests = turn.test.get_http_requests("your%-worker%.workers%.dev")
+        expect.equal(#requests, 1)
+        expect.truthy(requests[1].url:find("secret=test-secret", 1, true))
     end)
 end)
 
