@@ -1,4 +1,4 @@
-local Multipart = require("stt_tts.multipart")
+local Multipart = require("stt_tts_proto.multipart")
 local turn = require("turn")
 
 --- Transcribe audio from a media attachment using a configured STT API.

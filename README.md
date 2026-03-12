@@ -1,6 +1,8 @@
-# stt_tts
+# stt_tts [proto.cx fork]
 
-A Turn.io Lua app for composable Speech-to-Text and Text-to-Speech journey functions. Reference implementation uses OpenAI Whisper and TTS APIs.
+A Turn.io Lua app for composable Speech-to-Text and Text-to-Speech journey functions, ported to use the [proto.cx](https://proto.cx) voice API.
+
+This is a fork of [turnhub/turn-app-stt-tts](https://github.com/turnhub/turn-app-stt-tts). The original used OpenAI Whisper (STT) and OpenAI TTS. This version targets proto.cx and includes an OGG-to-MP3 conversion step via a temporary Cloudflare Worker (`ogg-to-mp3.arjunkhoosal.workers.dev`), since WhatsApp delivers voice notes as OGG/Opus and proto.cx only accepts MP3.
 
 ## Quick Start
 
@@ -31,9 +33,10 @@ turn-app build      # Build ZIP
 stt_tts/
 ├── stt_tts.lua                    # Main app code
 ├── stt_tts/
-│   ├── transcribe.lua             # STT: media → text
-│   ├── speak.lua                  # TTS: text → audio
-│   └── multipart.lua              # Multipart form builder
+│   ├── transcribe.lua             # STT: media → text (via proto.cx ASR)
+│   ├── speak.lua                  # TTS: text → audio (via proto.cx TTS)
+│   ├── multipart.lua              # Multipart form builder
+│   └── base64.lua                 # Pure-Lua base64 decoder (for proto.cx responses)
 ├── spec/
 │   ├── stt_tts_spec.lua           # Integration tests
 │   ├── transcribe_spec.lua        # Transcribe unit tests

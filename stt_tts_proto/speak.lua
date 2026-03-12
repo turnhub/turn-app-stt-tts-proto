@@ -1,5 +1,4 @@
 local turn = require("turn")
-local base64 = require("stt_tts.base64")
 
 --- Convert text to speech using a configured TTS API.
 -- @param args table Journey function arguments: {text, [gender]}
@@ -60,7 +59,7 @@ local function speak(args, config)
 
     -- 3. Decode base64 audio from JSON response
     local response_json = turn.json.decode(response)
-    local audio_data = base64.decode(response_json.content)
+    local audio_data = turn.encoding.base64_decode(response_json.content)
 
     -- 4. Save audio as platform media
     local save_success, media_info = turn.media.save({

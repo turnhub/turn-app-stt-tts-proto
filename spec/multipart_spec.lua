@@ -7,7 +7,7 @@ describe("Multipart", function()
 
     lester.before(function()
         package.loaded["stt_tts.multipart"] = nil
-        Multipart = require("stt_tts.multipart")
+        Multipart = require("stt_tts_proto.multipart")
     end)
 
     it("builds multipart body with field parts", function()

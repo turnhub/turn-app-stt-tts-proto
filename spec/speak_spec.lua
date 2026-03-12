@@ -1,5 +1,4 @@
 local turn = require("turn")
-local base64 = require("stt_tts.base64")
 local lester = require("lester")
 local describe, it, expect = lester.describe, lester.it, lester.expect
 
@@ -15,16 +14,15 @@ describe("speak", function()
 
     lester.before(function()
         turn.test.reset()
-        package.loaded["stt_tts.speak"] = nil
-        package.loaded["stt_tts.base64"] = nil
-        speak = require("stt_tts.speak")
+        package.loaded["stt_tts_proto.speak"] = nil
+        speak = require("stt_tts_proto.speak")
     end)
 
     it("converts text to audio and returns media_id", function()
         turn.test.mock_http("v3%-api%-develop%.proto%.cx", {
             method = "POST",
             status = 200,
-            body = turn.json.encode({ content = base64.encode("fake-audio-binary") }),
+            body = turn.json.encode({ content = turn.encoding.base64_encode("fake-audio-binary") }),
         })
 
         local action, result = speak({ "Hello world" }, config)
@@ -38,7 +36,7 @@ describe("speak", function()
         turn.test.mock_http("v3%-api%-develop%.proto%.cx", {
             method = "POST",
             status = 200,
-            body = turn.json.encode({ content = base64.encode("fake-audio") }),
+            body = turn.json.encode({ content = turn.encoding.base64_encode("fake-audio") }),
         })
 
         speak({ "Hello", "male" }, config)
@@ -53,7 +51,7 @@ describe("speak", function()
         turn.test.mock_http("v3%-api%-develop%.proto%.cx", {
             method = "POST",
             status = 200,
-            body = turn.json.encode({ content = base64.encode("fake-audio") }),
+            body = turn.json.encode({ content = turn.encoding.base64_encode("fake-audio") }),
         })
 
         speak({ "Hello" }, config)
@@ -67,7 +65,7 @@ describe("speak", function()
         turn.test.mock_http("v3%-api%-develop%.proto%.cx", {
             method = "POST",
             status = 200,
-            body = turn.json.encode({ content = base64.encode("fake-audio") }),
+            body = turn.json.encode({ content = turn.encoding.base64_encode("fake-audio") }),
         })
 
         speak({ "Say this" }, config)
@@ -100,7 +98,7 @@ describe("speak", function()
         turn.test.mock_http("v3%-api%-develop%.proto%.cx", {
             method = "POST",
             status = 200,
-            body = turn.json.encode({ content = base64.encode("fake-audio") }),
+            body = turn.json.encode({ content = turn.encoding.base64_encode("fake-audio") }),
         })
 
         local original_save = turn.media.save

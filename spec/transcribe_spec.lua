@@ -41,10 +41,9 @@ describe("transcribe", function()
             return "https://mock-storage.turn.io/attachments/1", true
         end
         turn.test.reset()
-        package.loaded["stt_tts.transcribe"] = nil
-        package.loaded["stt_tts.multipart"] = nil
-        package.loaded["stt_tts.base64"] = nil
-        transcribe = require("stt_tts.transcribe")
+        package.loaded["stt_tts_proto.transcribe"] = nil
+        package.loaded["stt_tts_proto.multipart"] = nil
+        transcribe = require("stt_tts_proto.transcribe")
     end)
 
     it("transcribes audio from a media attachment", function()

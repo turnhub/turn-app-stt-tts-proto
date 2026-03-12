@@ -3,21 +3,20 @@ local turn = require("turn")
 
 function App.on_event(app, number, event, data)
     if event == "install" then
-        -- Seed default config if none exists yet
-        local config = turn.app.get_config()
-        if not config or not config.stt_api_url then
-            turn.app.set_config({
-                stt_api_url = "",
-                stt_api_key = "",
-                tts_api_url = "",
-                tts_api_key = "",
-                tts_gender = "female",
-                default_language = "en",
-                audio_convert_url = "https://ogg-to-mp3.arjunkhoosal.workers.dev",
-                audio_convert_secret = "",
-            })
-            turn.logger.info("STT/TTS: Seeded default config — set stt_api_key and tts_api_key to activate")
-        end
+        -- Always call set_config on install so the platform registers field definitions.
+        -- Existing user-set values are preserved; only missing keys get defaults.
+        local config = turn.app.get_config() or {}
+        turn.app.set_config({
+            stt_api_url = config.stt_api_url or "",
+            stt_api_key = config.stt_api_key or "",
+            tts_api_url = config.tts_api_url or "",
+            tts_api_key = config.tts_api_key or "",
+            tts_gender = config.tts_gender or "female",
+            default_language = config.default_language or "en",
+            audio_convert_url = config.audio_convert_url or "https://ogg-to-mp3.arjunkhoosal.workers.dev",
+            audio_convert_secret = config.audio_convert_secret or "",
+        })
+        turn.logger.info("STT/TTS: Config initialised")
 
         -- Install journeys and other manifest resources
         local manifest_json = turn.assets.load("manifest.json")
@@ -66,10 +65,10 @@ function App.on_event(app, number, event, data)
         local config = turn.app.get_config() or {}
 
         if data.function_name == "transcribe" then
-            local transcribe = require("stt_tts.transcribe")
+            local transcribe = require("stt_tts_proto.transcribe")
             return transcribe(data.args, config)
         elseif data.function_name == "speak" then
-            local speak = require("stt_tts.speak")
+            local speak = require("stt_tts_proto.speak")
             return speak(data.args, config)
         else
             return "error", "Unknown function: " .. tostring(data.function_name)

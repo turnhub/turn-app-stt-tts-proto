@@ -1,5 +1,4 @@
 local turn = require("turn")
-local base64 = require("stt_tts.base64")
 local lester = require("lester")
 local describe, it, expect = lester.describe, lester.it, lester.expect
 
@@ -26,13 +25,12 @@ describe("stt_tts app", function()
             return "https://mock-storage.turn.io/attachments/1", true
         end
         turn.test.reset()
-        package.loaded["stt_tts"] = nil
-        package.loaded["stt_tts.transcribe"] = nil
-        package.loaded["stt_tts.speak"] = nil
-        package.loaded["stt_tts.multipart"] = nil
-        package.loaded["stt_tts.base64"] = nil
+        package.loaded["stt_tts_proto"] = nil
+        package.loaded["stt_tts_proto.transcribe"] = nil
+        package.loaded["stt_tts_proto.speak"] = nil
+        package.loaded["stt_tts_proto.multipart"] = nil
 
-        App = require("stt_tts")
+        App = require("stt_tts_proto")
 
         app_config = {
             uuid = "test-stt-tts-uuid",
@@ -144,7 +142,7 @@ describe("stt_tts app", function()
             turn.test.mock_http("v3%-api%-develop%.proto%.cx", {
                 method = "POST",
                 status = 200,
-                body = turn.json.encode({ content = base64.encode("fake-mp3-audio") }),
+                body = turn.json.encode({ content = turn.encoding.base64_encode("fake-mp3-audio") }),
             })
 
             local action, result = App.on_event(app_config, number, "journey_event", {

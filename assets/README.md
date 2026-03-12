@@ -1,26 +1,27 @@
-# Speech-to-Text / Text-to-Speech
+# Speech-to-Text / Text-to-Speech [proto.cx]
 
-This app provides two journey functions for converting between audio and text.
+This app provides two journey functions for converting between audio and text, using the [proto.cx](https://proto.cx) voice API for STT and TTS.
+
+> **Note:** This is a fork of [turnhub/turn-app-stt-tts](https://github.com/turnhub/turn-app-stt-tts) ported to work with the proto.cx API instead of OpenAI. It also uses a temporary OGG-to-MP3 conversion worker (see `audio_convert_url` below) since WhatsApp sends voice notes as OGG/Opus and proto.cx only accepts MP3.
 
 ## Configuration
 
 | Key | Description | Example |
 |-----|-------------|---------|
-| `stt_api_url` | STT endpoint URL | `https://api.openai.com/v1/audio/transcriptions` |
-| `stt_api_key` | STT API key | `sk-...` |
-| `stt_model` | STT model name | `whisper-1` |
-| `tts_api_url` | TTS endpoint URL | `https://api.openai.com/v1/audio/speech` |
-| `tts_api_key` | TTS API key | `sk-...` |
-| `tts_model` | TTS model name | `tts-1` |
-| `tts_voice` | Default TTS voice | `alloy` |
-| `default_language` | Default language for STT | `en` |
+| `stt_api_url` | proto.cx ASR endpoint | `https://v3-api-develop.proto.cx/api/platform/v1/voice/{teamspace_id}/asr` |
+| `stt_api_key` | proto.cx API key | `...` |
+| `tts_api_url` | proto.cx TTS endpoint | `https://v3-api-develop.proto.cx/api/platform/v1/voice/{teamspace_id}/tts` |
+| `tts_api_key` | proto.cx API key | `...` |
+| `tts_gender` | Default TTS voice gender | `female` or `male` |
+| `default_language` | Language code for STT and TTS | `en`, `rw` |
+| `audio_convert_url` | OGG→MP3 conversion worker URL | `https://ogg-to-mp3.arjunkhoosal.workers.dev` |
+| `audio_convert_secret` | Secret for the conversion worker | `...` |
 
 ## Journey Functions
 
 ### `transcribe(media_id, [language])`
 
-Converts audio to text. Pass the media ID from the incoming message — the app
-resolves a signed download URL internally via `turn.media.signed_url()`.
+Converts audio to text. Pass the media ID from the incoming message — the app resolves a signed download URL internally, converts the OGG to MP3, then sends it to the proto.cx ASR API.
 
 ```elixir
 card TranscribeInput do
@@ -31,18 +32,18 @@ end
 
 Returns: `{text = "...", language = "..."}`
 
-### `speak(text, [voice])`
+### `speak(text, [gender])`
 
-Converts text to audio. Returns a media_id that can be sent with `audio()`.
+Converts text to audio using proto.cx TTS. Returns a media_id that can be sent with `audio()`.
 
 ```elixir
 card SpeakAnswer do
-  result = app("stt_tts", "speak", ["Hello!", "alloy"])
+  result = app("stt_tts", "speak", ["Hello!"])
   audio("@result.result.media_id")
 end
 ```
 
-Returns: `{media_id = "...", content_type = "audio/opus"}`
+Returns: `{media_id = "...", content_type = "audio/mpeg"}`
 
 ## Complete Voice-FAQ Example
 
@@ -68,22 +69,4 @@ card SpeakAnswer do
   audio("@tts_result.result.media_id")
   text("@stt_result.result.text")
 end
-```
-
-## Vendor Porting
-
-To use a different STT/TTS provider (e.g., Proto for Kinyarwanda), edit
-`stt_tts/transcribe.lua` and `stt_tts/speak.lua`. Change the HTTP request
-shape to match your vendor's API. Configuration keys stay the same.
-
-Vendors accepting JSON with base64 audio can drop `multipart.lua`:
-
-```lua
-local audio_b64 = turn.encoding.base64_encode(audio_data)
-turn.http.request({
-  url = config.stt_api_url,
-  method = "POST",
-  headers = { ["Content-Type"] = "application/json", ... },
-  body = turn.json.encode({ audio = audio_b64, language = language }),
-})
 ```
