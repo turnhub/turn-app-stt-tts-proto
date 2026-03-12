@@ -1,16 +1,39 @@
 local Multipart = require("stt_tts_proto.multipart")
 local turn = require("turn")
 
+--- Create a scoped logger that prepends a function name and random request ID to every message.
+-- @param func_name string The name of the function being logged
+-- @return table Logger with info() and error() methods
+local function make_logger(func_name)
+    local request_id = math.random(100000, 999999)
+    local prefix = "[" .. func_name .. "][" .. request_id .. "] "
+    return {
+        info = function(msg) turn.logger.info(prefix .. msg) end,
+        error = function(msg) turn.logger.error(prefix .. msg) end,
+    }
+end
+
 --- Transcribe audio from a media attachment using a configured STT API.
 -- @param args table Journey function arguments: {media_id, [language]}
 -- @param config table App configuration with stt_api_url, stt_api_key, audio_convert_url, default_language
 -- @return string Action signal ("continue")
 -- @return table Result with text and language, or error details
 local function transcribe(args, config)
+    local log = make_logger("transcribe")
+    log.info("starting")
+    log.info("args = " .. turn.json.encode(args))
+
     local media_id = args[1]
     local language = args[2] or config.default_language
 
+    log.info("media_id = " .. tostring(media_id))
+    log.info("language = " .. tostring(language))
+    log.info("stt_api_url = " .. tostring(config.stt_api_url))
+    log.info("audio_convert_url = " .. tostring(config.audio_convert_url))
+    log.info("stt_api_key present = " .. tostring(config.stt_api_key ~= nil))
+
     if not media_id then
+        log.error("missing media_id argument")
         return "continue", {
             success = false,
             error = "missing_argument",
@@ -19,6 +42,7 @@ local function transcribe(args, config)
     end
 
     if not config.stt_api_url or not config.stt_api_key then
+        log.error("missing config - stt_api_url=" .. tostring(config.stt_api_url) .. " stt_api_key present=" .. tostring(config.stt_api_key ~= nil))
         return "continue", {
             success = false,
             error = "missing_config",
@@ -27,8 +51,11 @@ local function transcribe(args, config)
     end
 
     -- 1. Get a signed URL for the media attachment
+    log.info("step 1 - getting signed URL for media_id=" .. tostring(media_id))
     local audio_url, url_ok = turn.media.signed_url(media_id)
+    log.info("signed_url result - url_ok=" .. tostring(url_ok) .. " audio_url=" .. tostring(audio_url))
     if not url_ok then
+        log.error("failed to get signed URL - " .. tostring(audio_url))
         return "continue", {
             success = false,
             error = "signed_url_failed",
@@ -37,12 +64,15 @@ local function transcribe(args, config)
     end
 
     -- 2. Download audio from the signed URL
+    log.info("step 2 - downloading audio from signed URL")
     local audio_data, download_status = turn.http.request({
         url = audio_url,
         method = "GET"
     })
+    log.info("download result - status=" .. tostring(download_status) .. " data_length=" .. tostring(audio_data and #audio_data or "nil"))
 
     if download_status ~= 200 then
+        log.error("audio download failed - HTTP " .. tostring(download_status) .. " response=" .. tostring(audio_data))
         return "continue", {
             success = false,
             error = "download_failed",
@@ -51,13 +81,17 @@ local function transcribe(args, config)
     end
 
     -- 3. Convert OGG to MP3 via conversion worker
+    local convert_url = config.audio_convert_url .. "?to=mp3" .. (config.audio_convert_secret and ("&secret=" .. config.audio_convert_secret) or "")
+    log.info("step 3 - converting audio via " .. tostring(config.audio_convert_url) .. " (input size=" .. tostring(#audio_data) .. " bytes)")
     local mp3_data, convert_status = turn.http.request({
-        url = config.audio_convert_url .. "?to=mp3" .. (config.audio_convert_secret and ("&secret=" .. config.audio_convert_secret) or ""),
+        url = convert_url,
         method = "POST",
         body = audio_data,
     })
+    log.info("conversion result - status=" .. tostring(convert_status) .. " mp3_data_length=" .. tostring(mp3_data and #mp3_data or "nil"))
 
     if convert_status ~= 200 then
+        log.error("audio conversion failed - HTTP " .. tostring(convert_status) .. " response=" .. tostring(mp3_data))
         return "continue", {
             success = false,
             error = "convert_failed",
@@ -66,17 +100,21 @@ local function transcribe(args, config)
     end
 
     -- 4. Build multipart body for STT API
+    log.info("step 4 - building multipart body")
     local parts = {
         { name = "file", filename = "audio.mp3", content_type = "audio/mpeg", data = mp3_data },
     }
 
     if language then
+        log.info("adding language part - lang=" .. tostring(language))
         table.insert(parts, { name = "lang", value = language })
     end
 
     local body, content_type = Multipart.build(parts)
+    log.info("multipart body built - content_type=" .. tostring(content_type) .. " body_length=" .. tostring(body and #body or "nil"))
 
     -- 5. POST to STT API
+    log.info("step 5 - posting to STT API at " .. tostring(config.stt_api_url))
     local response, stt_status = turn.http.request({
         url = config.stt_api_url,
         method = "POST",
@@ -86,9 +124,10 @@ local function transcribe(args, config)
         },
         body = body,
     })
+    log.info("STT API result - status=" .. tostring(stt_status) .. " response_length=" .. tostring(response and #response or "nil"))
 
     if stt_status ~= 200 then
-        turn.logger.error("STT API error: HTTP " .. tostring(stt_status) .. " - " .. tostring(response))
+        log.error("STT API error: HTTP " .. tostring(stt_status) .. " - " .. tostring(response))
         return "continue", {
             success = false,
             error = "stt_api_error",
@@ -96,10 +135,17 @@ local function transcribe(args, config)
         }
     end
 
+    log.info("step 6 - decoding JSON response")
+    log.info("raw response = " .. tostring(response))
     local result = turn.json.decode(response)
+    log.info("decoded result = " .. turn.json.encode(result))
+
+    local transcription_text = result.transcription.transcription
+    log.info("success - transcription length=" .. tostring(transcription_text and #transcription_text or "nil") .. " language=" .. tostring(language))
+    log.info("transcription text = " .. tostring(transcription_text))
 
     return "continue", {
-        text = result.transcription.transcription,
+        text = transcription_text,
         language = language,
     }
 end

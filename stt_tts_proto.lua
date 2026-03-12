@@ -74,6 +74,14 @@ function App.on_event(app, number, event, data)
             return "error", "Unknown function: " .. tostring(data.function_name)
         end
 
+    elseif event == "upgrade" then
+        turn.logger.info("STT/TTS: Upgrading from " .. tostring(data.from_version) .. " to " .. tostring(data.to_version))
+        return true
+
+    elseif event == "downgrade" then
+        turn.logger.info("STT/TTS: Downgrading from " .. tostring(data.from_version) .. " to " .. tostring(data.to_version))
+        return true
+
     elseif event == "get_app_info_markdown" then
         local readme = turn.assets.load("README.md")
         return readme or "# STT/TTS App"
