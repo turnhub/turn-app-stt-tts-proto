@@ -28,6 +28,7 @@ describe("speak", function()
         local action, result = speak({ "Hello world" }, config)
 
         expect.equal(action, "continue")
+        expect.equal(result.success, true)
         expect.truthy(result.media_id)
         expect.equal(result.content_type, "audio/mpeg")
     end)

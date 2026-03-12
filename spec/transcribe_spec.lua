@@ -70,6 +70,7 @@ describe("transcribe", function()
         local action, result = transcribe({ media_id }, config)
 
         expect.equal(action, "continue")
+        expect.equal(result.success, true)
         expect.equal(result.text, "Hello world")
         expect.equal(result.language, "en")
     end)

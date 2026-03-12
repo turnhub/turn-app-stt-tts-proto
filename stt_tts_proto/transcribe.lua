@@ -13,6 +13,19 @@ local function make_logger(func_name)
     }
 end
 
+--- Estimate duration (seconds) of a CBR MP3 from its raw bytes by reading the frame header.
+-- Returns nil if the data doesn't look like a valid MP3 frame.
+local function estimate_mp3_duration(data)
+    if not data or #data < 4 then return nil end
+    local b0, b1, b2 = data:byte(1), data:byte(2), data:byte(3)
+    if b0 ~= 0xFF or b1 < 0xE0 then return nil end  -- sync word check
+    local bitrate_index = math.floor(b2 / 16)  -- upper 4 bits of byte 3
+    local bitrates = {0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320}
+    local bitrate_kbps = bitrates[bitrate_index + 1]
+    if not bitrate_kbps or bitrate_kbps == 0 then return nil end
+    return (#data * 8) / (bitrate_kbps * 1000)
+end
+
 --- Transcribe audio from a media attachment using a configured STT API.
 -- @param args table Journey function arguments: {media_id, [language]}
 -- @param config table App configuration with stt_api_url, stt_api_key, audio_convert_url, default_language
@@ -80,7 +93,7 @@ local function transcribe(args, config)
         }
     end
 
-    -- 3. Convert OGG to MP3 via conversion worker
+    -- 3. Convert Opus to MP3 via conversion worker
     local convert_url = config.audio_convert_url .. "?to=mp3" .. (config.audio_convert_secret and ("&secret=" .. config.audio_convert_secret) or "")
     log.info("step 3 - converting audio via " .. tostring(config.audio_convert_url) .. " (input size=" .. tostring(#audio_data) .. " bytes)")
     local mp3_data, convert_status = turn.http.request({
@@ -88,7 +101,13 @@ local function transcribe(args, config)
         method = "POST",
         body = audio_data,
     })
-    log.info("conversion result - status=" .. tostring(convert_status) .. " mp3_data_length=" .. tostring(mp3_data and #mp3_data or "nil"))
+    local mp3_len = mp3_data and #mp3_data or 0
+    local ogg_len = #audio_data
+    local mp3_estimated_secs = estimate_mp3_duration(mp3_data)
+    log.info("conversion result - status=" .. tostring(convert_status) .. " ogg_bytes=" .. tostring(ogg_len) .. " mp3_bytes=" .. tostring(mp3_len) .. " mp3_estimated_secs=" .. (mp3_estimated_secs and string.format("%.2f", mp3_estimated_secs) or "nil") .. " ratio=" .. string.format("%.2f", mp3_len > 0 and (mp3_len / ogg_len) or 0))
+    if mp3_data and #mp3_data >= 3 then
+        log.info("mp3 header bytes (hex) = " .. string.format("%02X %02X %02X", mp3_data:byte(1), mp3_data:byte(2), mp3_data:byte(3)))
+    end
 
     if convert_status ~= 200 then
         log.error("audio conversion failed - HTTP " .. tostring(convert_status) .. " response=" .. tostring(mp3_data))
@@ -141,10 +160,13 @@ local function transcribe(args, config)
     log.info("decoded result = " .. turn.json.encode(result))
 
     local transcription_text = result.transcription.transcription
-    log.info("success - transcription length=" .. tostring(transcription_text and #transcription_text or "nil") .. " language=" .. tostring(language))
+    local audio_length = result.transcription.audio_length
+    log.info("audio durations - ogg_download_bytes=" .. tostring(ogg_len) .. " mp3_bytes=" .. tostring(mp3_len) .. " audio_length_secs=" .. tostring(audio_length) .. " file_size_reported=" .. tostring(result.file_size))
+    log.info("success - transcription chars=" .. tostring(transcription_text and #transcription_text or "nil") .. " language=" .. tostring(language))
     log.info("transcription text = " .. tostring(transcription_text))
 
     return "continue", {
+        success = true,
         text = transcription_text,
         language = language,
     }

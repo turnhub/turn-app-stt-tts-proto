@@ -76,6 +76,7 @@ local function speak(args, config)
     end
 
     return "continue", {
+        success = true,
         media_id = media_info.external_id,
         content_type = "audio/mpeg",
     }
