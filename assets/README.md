@@ -25,7 +25,7 @@ Converts audio to text. Pass the media ID from the incoming message — the app 
 
 ```elixir
 card TranscribeInput do
-  result = app("stt_tts", "transcribe", ["@event.message.audio.id", "en"])
+  result = app("stt_tts_proto", "transcribe", ["@event.message.audio.id", "en"])
   transcribed_text = result.result.text
 end
 ```
@@ -38,7 +38,7 @@ Converts text to audio using proto.cx TTS. Returns a media_id that can be sent w
 
 ```elixir
 card SpeakAnswer do
-  result = app("stt_tts", "speak", ["Hello!"])
+  result = app("stt_tts_proto", "speak", ["Hello!"])
   audio("@result.result.media_id")
 end
 ```
@@ -53,7 +53,7 @@ card AskVoiceNote do
 end
 
 card TranscribeInput do
-  stt_result = app("stt_tts", "transcribe", ["@event.message.audio.id"])
+  stt_result = app("stt_tts_proto", "transcribe", ["@event.message.audio.id"])
   user_question = stt_result.result.text
 end
 
@@ -65,7 +65,7 @@ card AnswerWithAI, code_generator: "AI_TEXT" do
 end
 
 card SpeakAnswer do
-  tts_result = app("stt_tts", "speak", ["@ref_AnswerWithAI"])
+  tts_result = app("stt_tts_proto", "speak", ["@ref_AnswerWithAI"])
   audio("@tts_result.result.media_id")
   text("@stt_result.result.text")
 end

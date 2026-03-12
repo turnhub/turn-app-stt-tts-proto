@@ -22,7 +22,7 @@ describe("speak", function()
         turn.test.mock_http("v3%-api%-develop%.proto%.cx", {
             method = "POST",
             status = 200,
-            body = turn.json.encode({ content = turn.encoding.base64_encode("fake-audio-binary") }),
+            body = "fake-audio-binary",
         })
 
         local action, result = speak({ "Hello world" }, config)
@@ -36,7 +36,7 @@ describe("speak", function()
         turn.test.mock_http("v3%-api%-develop%.proto%.cx", {
             method = "POST",
             status = 200,
-            body = turn.json.encode({ content = turn.encoding.base64_encode("fake-audio") }),
+            body = "fake-audio",
         })
 
         speak({ "Hello", "male" }, config)
@@ -51,7 +51,7 @@ describe("speak", function()
         turn.test.mock_http("v3%-api%-develop%.proto%.cx", {
             method = "POST",
             status = 200,
-            body = turn.json.encode({ content = turn.encoding.base64_encode("fake-audio") }),
+            body = "fake-audio",
         })
 
         speak({ "Hello" }, config)
@@ -65,7 +65,7 @@ describe("speak", function()
         turn.test.mock_http("v3%-api%-develop%.proto%.cx", {
             method = "POST",
             status = 200,
-            body = turn.json.encode({ content = turn.encoding.base64_encode("fake-audio") }),
+            body = "fake-audio",
         })
 
         speak({ "Say this" }, config)
@@ -98,7 +98,7 @@ describe("speak", function()
         turn.test.mock_http("v3%-api%-develop%.proto%.cx", {
             method = "POST",
             status = 200,
-            body = turn.json.encode({ content = turn.encoding.base64_encode("fake-audio") }),
+            body = "fake-audio",
         })
 
         local original_save = turn.media.save

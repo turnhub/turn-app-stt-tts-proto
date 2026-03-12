@@ -25,7 +25,7 @@ card Transcribe, "Transcribe",
   version: "1",
   uuid: "b2c63d80-0001-4e43-b87e-636c744a0003",
   code_generator: "APP" do
-  ref_Transcribe = app("stt_tts", "transcribe", ["@event.message.audio.id"])
+  ref_Transcribe = app("stt_tts_proto", "transcribe", ["@event.message.audio.id"])
   then(ShowTranscription when ref_Transcribe.success == true)
   then(ErrorCard when ref_Transcribe.success == false)
 end
@@ -68,7 +68,7 @@ card SpeakAnswer, "SpeakAnswer",
   version: "1",
   uuid: "b2c63d80-0001-4e43-b87e-636c744a0004",
   code_generator: "APP" do
-  ref_SpeakAnswer = app("stt_tts", "speak", ["@ref_AnswerWithAI"])
+  ref_SpeakAnswer = app("stt_tts_proto", "speak", ["@ref_AnswerWithAI"])
   then(SendAudio when ref_SpeakAnswer.success == true)
   then(TextFallback when ref_SpeakAnswer.success == false)
 end

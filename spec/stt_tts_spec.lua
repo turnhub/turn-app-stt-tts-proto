@@ -142,7 +142,7 @@ describe("stt_tts app", function()
             turn.test.mock_http("v3%-api%-develop%.proto%.cx", {
                 method = "POST",
                 status = 200,
-                body = turn.json.encode({ content = turn.encoding.base64_encode("fake-mp3-audio") }),
+                body = "fake-mp3-audio",
             })
 
             local action, result = App.on_event(app_config, number, "journey_event", {

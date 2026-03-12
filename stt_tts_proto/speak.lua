@@ -57,9 +57,8 @@ local function speak(args, config)
         }
     end
 
-    -- 3. Decode base64 audio from JSON response
-    local response_json = turn.json.decode(response)
-    local audio_data = turn.encoding.base64_decode(response_json.content)
+    -- 3. Use raw binary audio from response
+    local audio_data = response
 
     -- 4. Save audio as platform media
     local save_success, media_info = turn.media.save({
