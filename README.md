@@ -30,13 +30,12 @@ turn-app build      # Build ZIP
 ## Project Structure
 
 ```
-stt_tts/
-├── stt_tts.lua                    # Main app code
-├── stt_tts/
+stt_tts_proto/
+├── stt_tts_proto.lua              # Main app code
+├── stt_tts_proto/
 │   ├── transcribe.lua             # STT: media → text (via proto.cx ASR)
 │   ├── speak.lua                  # TTS: text → audio (via proto.cx TTS)
-│   ├── multipart.lua              # Multipart form builder
-│   └── base64.lua                 # Pure-Lua base64 decoder (for proto.cx responses)
+│   └── multipart.lua              # Multipart form builder
 ├── spec/
 │   ├── stt_tts_spec.lua           # Integration tests
 │   ├── transcribe_spec.lua        # Transcribe unit tests
@@ -60,8 +59,8 @@ See `spec/` for examples.
 ## Building
 
 The build process creates a ZIP file with:
-- Main Lua file (`stt_tts.lua`)
-- `stt_tts/` directory (submodules)
+- Main Lua file (`stt_tts_proto.lua`)
+- `stt_tts_proto/` directory (submodules)
 - `assets/` directory (including manifest.json and README.md for UI display)
 
 Excludes:
