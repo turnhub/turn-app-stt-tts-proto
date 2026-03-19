@@ -84,6 +84,7 @@ local function speak(args, config)
             ["Content-Type"] = "application/json",
         },
         body = turn.json.encode(request_body),
+        timeout = 15000,
     }, config.number_of_retries, turn.logger.error)
 
     if status ~= 200 then

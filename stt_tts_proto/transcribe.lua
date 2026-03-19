@@ -118,7 +118,8 @@ local function transcribe(args, config)
     log.info("step 2 - downloading audio from signed URL")
     local audio_data, download_status = http_with_retry({
         url = audio_url,
-        method = "GET"
+        method = "GET",
+        timeout = 15000,
     }, config.number_of_retries, log.error)
     log.info("download result - status=" .. tostring(download_status) .. " data_length=" .. tostring(audio_data and #audio_data or "nil"))
 
@@ -138,6 +139,7 @@ local function transcribe(args, config)
         url = convert_url,
         method = "POST",
         body = audio_data,
+        timeout = 15000,
     }, config.number_of_retries, log.error)
     local mp3_len = mp3_data and #mp3_data or 0
     local ogg_len = #audio_data
@@ -180,6 +182,7 @@ local function transcribe(args, config)
             ["Content-Type"] = content_type,
         },
         body = body,
+        timeout = 15000,
     }, config.number_of_retries, log.error)
     log.info("STT API result - status=" .. tostring(stt_status) .. " response_length=" .. tostring(response and #response or "nil"))
 

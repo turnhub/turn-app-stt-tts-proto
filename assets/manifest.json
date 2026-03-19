@@ -2,7 +2,7 @@
   "app": {
     "type": "lua",
     "name": "stt_tts_proto",
-    "version": "0.9.0",
+    "version": "0.10.0",
     "title": "Speech-to-Text / Text-to-Speech [proto API]",
     "description": "Composable STT and TTS journey functions. Forked to use the proto.cx API instead of OpenAI."
   },
