@@ -18,7 +18,7 @@ local function http_with_retry(params, max_retries, log_err)
         local elapsed_ms = string.format("%.2f", (os.clock() - t0) * 1000)
         if not ok then
             local err_msg = tostring(response)
-            if log_err then log_err("HTTP " .. params.method .. " " .. params.url .. " failed after " .. elapsed_ms .. "ms - " .. err_msg) end
+            if log_err then log_err("[retry] HTTP " .. params.method .. " " .. params.url .. " attempt " .. attempt .. " caught error: " .. err_msg) end
             if attempt > max_retries then
                 error(err_msg)
             end
