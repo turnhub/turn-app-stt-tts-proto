@@ -3,12 +3,13 @@ local turn = require("turn")
 
 --- Perform an HTTP request with up to max_retries retries and exponential backoff.
 -- Retries on Lua errors (e.g. timeout) or HTTP 5xx/429 responses.
+-- Re-raises the error after all retries are exhausted so the platform fallback triggers.
 -- @param params table turn.http.request params
--- @param max_retries number number of retries (default 3)
+-- @param max_retries number number of retries (default 0 = no retries)
 -- @param log_err function optional function(msg) for error logging
--- @return response, status (status=0 on unrecoverable error)
+-- @return response, status
 local function http_with_retry(params, max_retries, log_err)
-    max_retries = max_retries or 3
+    max_retries = max_retries or 0
     local attempt = 0
     while true do
         attempt = attempt + 1
@@ -17,7 +18,7 @@ local function http_with_retry(params, max_retries, log_err)
             local err_msg = tostring(response)
             if attempt > max_retries then
                 if log_err then log_err("HTTP failed after " .. attempt .. " attempts - " .. err_msg) end
-                return nil, 0
+                error(err_msg)
             end
             local delay = 2 ^ (attempt - 1)
             if log_err then log_err("HTTP error (attempt " .. attempt .. "/" .. max_retries .. "): " .. err_msg .. " - retrying in " .. delay .. "s") end
@@ -118,7 +119,7 @@ local function transcribe(args, config)
     local audio_data, download_status = http_with_retry({
         url = audio_url,
         method = "GET"
-    }, 5, log.error)
+    }, config.number_of_retries, log.error)
     log.info("download result - status=" .. tostring(download_status) .. " data_length=" .. tostring(audio_data and #audio_data or "nil"))
 
     if download_status ~= 200 then
@@ -137,7 +138,7 @@ local function transcribe(args, config)
         url = convert_url,
         method = "POST",
         body = audio_data,
-    }, 5, log.error)
+    }, config.number_of_retries, log.error)
     local mp3_len = mp3_data and #mp3_data or 0
     local ogg_len = #audio_data
     local mp3_estimated_secs = estimate_mp3_duration(mp3_data)
@@ -179,7 +180,7 @@ local function transcribe(args, config)
             ["Content-Type"] = content_type,
         },
         body = body,
-    }, 5, log.error)
+    }, config.number_of_retries, log.error)
     log.info("STT API result - status=" .. tostring(stt_status) .. " response_length=" .. tostring(response and #response or "nil"))
 
     if stt_status ~= 200 then

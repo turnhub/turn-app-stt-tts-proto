@@ -2,12 +2,13 @@ local turn = require("turn")
 
 --- Perform an HTTP request with up to max_retries retries and exponential backoff.
 -- Retries on Lua errors (e.g. timeout) or HTTP 5xx/429 responses.
+-- Re-raises the error after all retries are exhausted so the platform fallback triggers.
 -- @param params table turn.http.request params
--- @param max_retries number number of retries (default 3)
+-- @param max_retries number number of retries (default 0 = no retries)
 -- @param log_err function optional function(msg) for error logging
--- @return response, status (status=0 on unrecoverable error)
+-- @return response, status
 local function http_with_retry(params, max_retries, log_err)
-    max_retries = max_retries or 3
+    max_retries = max_retries or 0
     local attempt = 0
     while true do
         attempt = attempt + 1
@@ -16,7 +17,7 @@ local function http_with_retry(params, max_retries, log_err)
             local err_msg = tostring(response)
             if attempt > max_retries then
                 if log_err then log_err("HTTP failed after " .. attempt .. " attempts - " .. err_msg) end
-                return nil, 0
+                error(err_msg)
             end
             local delay = 2 ^ (attempt - 1)
             if log_err then log_err("HTTP error (attempt " .. attempt .. "/" .. max_retries .. "): " .. err_msg .. " - retrying in " .. delay .. "s") end
@@ -83,7 +84,7 @@ local function speak(args, config)
             ["Content-Type"] = "application/json",
         },
         body = turn.json.encode(request_body),
-    }, 5, turn.logger.error)
+    }, config.number_of_retries, turn.logger.error)
 
     if status ~= 200 then
         turn.logger.error("TTS API error: HTTP " .. tostring(status) .. " - " .. tostring(response))

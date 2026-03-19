@@ -10,6 +10,7 @@ describe("speak", function()
         tts_api_key = "test-key",
         tts_gender = "female",
         default_language = "en",
+        number_of_retries = 2,
     }
 
     lester.before(function()

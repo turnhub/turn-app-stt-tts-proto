@@ -15,6 +15,7 @@ function App.on_event(app, number, event, data)
             default_language = config.default_language or "en",
             audio_convert_url = config.audio_convert_url or "https://ogg-to-mp3.arjunkhoosal.workers.dev",
             audio_convert_secret = config.audio_convert_secret or "",
+            number_of_retries = config.number_of_retries or 5,
         })
         turn.logger.info("STT/TTS: Config initialised")
 
