@@ -12,13 +12,13 @@ local function http_with_retry(params, max_retries, log_err)
     local attempt = 0
     while true do
         attempt = attempt + 1
-        if log_err then log_err("HTTP " .. params.method .. " " .. params.url .. " attempt " .. attempt .. " starting") end
+        turn.logger.info("HTTP " .. params.method .. " " .. params.url .. " attempt " .. attempt .. " starting")
         local t0 = os.clock()
         local ok, response, status = pcall(turn.http.request, params)
         local elapsed_ms = string.format("%.2f", (os.clock() - t0) * 1000)
         if not ok then
             local err_msg = tostring(response)
-            if log_err then log_err("[retry] HTTP " .. params.method .. " " .. params.url .. " attempt " .. attempt .. " caught error: " .. err_msg) end
+            if log_err then log_err("[retry] HTTP " .. params.method .. " " .. params.url .. " attempt " .. attempt .. " caught error after " .. elapsed_ms .. "ms: " .. err_msg) end
             if attempt > max_retries then
                 error(err_msg)
             end
