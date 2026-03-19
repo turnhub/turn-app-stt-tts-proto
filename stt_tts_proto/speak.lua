@@ -83,7 +83,7 @@ local function speak(args, config)
             ["Content-Type"] = "application/json",
         },
         body = turn.json.encode(request_body),
-    }, 3, turn.logger.error)
+    }, 5, turn.logger.error)
 
     if status ~= 200 then
         turn.logger.error("TTS API error: HTTP " .. tostring(status) .. " - " .. tostring(response))

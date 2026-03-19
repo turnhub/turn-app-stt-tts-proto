@@ -118,7 +118,7 @@ local function transcribe(args, config)
     local audio_data, download_status = http_with_retry({
         url = audio_url,
         method = "GET"
-    }, 3, log.error)
+    }, 5, log.error)
     log.info("download result - status=" .. tostring(download_status) .. " data_length=" .. tostring(audio_data and #audio_data or "nil"))
 
     if download_status ~= 200 then
@@ -137,7 +137,7 @@ local function transcribe(args, config)
         url = convert_url,
         method = "POST",
         body = audio_data,
-    }, 3, log.error)
+    }, 5, log.error)
     local mp3_len = mp3_data and #mp3_data or 0
     local ogg_len = #audio_data
     local mp3_estimated_secs = estimate_mp3_duration(mp3_data)
@@ -179,7 +179,7 @@ local function transcribe(args, config)
             ["Content-Type"] = content_type,
         },
         body = body,
-    }, 3, log.error)
+    }, 5, log.error)
     log.info("STT API result - status=" .. tostring(stt_status) .. " response_length=" .. tostring(response and #response or "nil"))
 
     if stt_status ~= 200 then
