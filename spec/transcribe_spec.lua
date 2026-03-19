@@ -15,6 +15,7 @@ describe("transcribe", function()
         audio_convert_url = "https://your-worker.workers.dev",
         audio_convert_secret = "test-secret",
         default_language = "en",
+        number_of_retries = 2,
     }
 
     --- Save a mock media entry and return the external_id for use with signed_url.
